@@ -8,20 +8,19 @@
     "test": "jest --runInBand"
   },
   "dependencies": {
-    "react": "^19.0.0",
-    "react-native": "^0.79.0"
+    "react": "19.2.8",
+    "react-native": "0.79.7"
   },
   "devDependencies": {
-    "@types/jest": "^30.0.0",
-    "@types/react": "^19.0.0",
-    "@types/react-test-renderer": "^19.0.0",
-    "jest": "^30.0.0",
-    "react-test-renderer": "^19.0.0",
-    "ts-jest": "^29.2.5",
-    "typescript": "^5.8.0"
+    "@types/jest": "30.0.0",
+    "@types/react": "19.0.0",
+    "@types/react-test-renderer": "19.0.0",
+    "jest": "30.4.2",
+    "react-test-renderer": "19.2.8",
+    "ts-jest": "29.4.12",
+    "typescript": "5.8.0"
   },
   "jest": {
-    "preset": "react-native",
     "transform": {
       "^.+\\.tsx?$": [
         "ts-jest",
@@ -36,6 +35,10 @@
     ],
     "setupFiles": [
       "<rootDir>/src/__tests__/jest.setup.ts"
-    ]
+    ],
+    "testEnvironment": "node",
+    "moduleNameMapper": {
+      "^react-native$": "<rootDir>/src/__tests__/react-native.mock.ts"
+    }
   }
 }

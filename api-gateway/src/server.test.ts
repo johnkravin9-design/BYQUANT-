@@ -32,7 +32,7 @@ async function withApp<T>(database: MemoryDatabase, notifier: MockNotifier, run:
   finally { await new Promise<void>((resolve, reject) => app.close((error?: Error) => error === undefined ? resolve() : reject(error))); }
 }
 
-const validSignal = { signal_id: "sig-1", symbol: "BTCUSDT", direction: "BUY", entry: 123.4567, stop_loss: 120, tp1: 128, tp2: 136, tp3: 144, timeframe: "1h", candle_timestamp: "2026-08-19T00:00:00.000Z" };
+const validSignal = { signal_id: "123e4567-e89b-12d3-a456-426614174000", symbol: "BTCUSDT", direction: "BUY", entry: 123.4567, stop_loss: 120, tp1: 128, tp2: 136, tp3: 144, timeframe: "1h", candle_timestamp: "2026-08-19T00:00:00.000Z" };
 
 async function post(baseUrl: string, body: unknown, token = "secret"): Promise<{ readonly status: number; readonly json: unknown }> {
   const response = await fetch(`${baseUrl}/api/signals/webhook`, { method: "POST", headers: { "content-type": "application/json", "x-byquant-auth": token }, body: JSON.stringify(body) });
@@ -93,6 +93,32 @@ describe("api gateway", () => {
     });
   });
 
+  it("runs a synthetic engine-to-mobile-compatible signal flow", async () => {
+    const database = new MemoryDatabase();
+    const notifier = new MockNotifier();
+    await withApp(database, notifier, async (baseUrl) => {
+      const created = await post(baseUrl, validSignal);
+      assert.equal(created.status, 201);
+      assert.equal(database.signals.length, 1);
+      assert.equal(notifier.calls, 1);
+
+      const duplicate = await post(baseUrl, validSignal);
+      assert.equal(duplicate.status, 200);
+      assert.equal(database.signals.length, 1);
+      assert.equal(notifier.calls, 1);
+
+      const response = await fetch(`${baseUrl}/api/signals?symbol=BTCUSDT&limit=10`);
+      assert.equal(response.status, 200);
+      const body = await response.json() as { readonly data: readonly MarketSignal[] };
+      assert.equal(body.data.length, 1);
+      assert.equal(body.data[0]?.signal_id, validSignal.signal_id);
+      assert.equal(body.data[0]?.symbol, "BTCUSDT");
+      assert.equal(body.data[0]?.direction, "BUY");
+      assert.equal(body.data[0]?.timeframe, "1h");
+      assert.equal(typeof body.data[0]?.entry_price, "string");
+      assert.equal(Number(body.data[0]?.entry_price), validSignal.entry);
+    });
+  });
 
   it("rejects oversized JSON request bodies", async () => {
     await withApp(new MemoryDatabase(), new MockNotifier(), async (baseUrl) => {

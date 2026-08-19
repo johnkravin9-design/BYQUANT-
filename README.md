@@ -60,11 +60,11 @@ Python emits this webhook payload:
   "signal_id": "uuid-or-stable-id",
   "symbol": "BTCUSDT",
   "direction": "BUY",
-  "entry": "64000.1234",
-  "stop_loss": "62000.0000",
-  "tp1": "65000.0000",
-  "tp2": "66000.0000",
-  "tp3": "68000.0000",
+  "entry": 64000.1234,
+  "stop_loss": 62000.0000,
+  "tp1": 65000.0000,
+  "tp2": 66000.0000,
+  "tp3": 68000.0000,
   "timeframe": "1h",
   "candle_timestamp": 1787097600000
 }
@@ -79,15 +79,38 @@ The API validates positive finite numeric values and ordering, then persists the
 
 `market_signals.signal_id` is unique and is the idempotency key. `GET /api/signals` returns `{ "data": MarketSignal[] }`; numeric PostgreSQL values are serialized as strings by the gateway, and the mobile client normalizes them to numbers for its TypeScript `Signal` model.
 
-## PostgreSQL setup
+## PostgreSQL local setup
 
-Start local PostgreSQL:
+Docker Compose remains supported, but local development does not require Docker. Install PostgreSQL with your operating-system package manager, create an application database, initialize the checked-in schema, and point the API gateway at it with `DATABASE_URL`.
+
+macOS/Homebrew example:
+
+```bash
+brew install postgresql@16
+brew services start postgresql@16
+createdb byquant_local
+psql -d byquant_local -f database/schema.sql
+export DATABASE_URL=postgresql://localhost/byquant_local
+```
+
+Debian/Ubuntu example:
+
+```bash
+sudo apt-get install postgresql postgresql-client
+sudo -u postgres createdb byquant_local
+sudo -u postgres psql -d byquant_local -f database/schema.sql
+export DATABASE_URL=postgresql://postgres@localhost/byquant_local
+```
+
+The schema enables `pgcrypto`, creates `users`, `user_favorites`, and `market_signals`, and uses non-destructive `CREATE ... IF NOT EXISTS` statements. `market_signals.signal_id` is the unique idempotency key for webhook inserts, and `user_favorites(user_id, symbol)` prevents duplicate favorites.
+
+Docker fallback when available:
 
 ```bash
 docker compose up -d postgres
 ```
 
-`docker-compose.yml` mounts `database/schema.sql` into `/docker-entrypoint-initdb.d/`, so a fresh volume initializes `users`, `user_favorites`, and `market_signals` with constraints and indexes. Existing volumes are not destructively reinitialized by Compose.
+`docker-compose.yml` mounts `database/schema.sql` into `/docker-entrypoint-initdb.d/`, so a fresh volume initializes constraints and indexes. Existing volumes are not destructively reinitialized by Compose.
 
 ## API gateway startup
 

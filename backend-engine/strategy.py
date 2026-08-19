@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import OrderedDict
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from uuid import uuid4
 
 from market_cache import Candle
@@ -22,11 +22,19 @@ class Signal:
     timeframe: str
     candle_timestamp: int
 
-    def to_payload(self) -> dict[str, str | int]:
-        payload = asdict(self)
-        for key in ("entry", "stop_loss", "tp1", "tp2", "tp3"):
-            payload[key] = f"{getattr(self, key):.4f}"
-        return payload
+    def to_payload(self) -> dict[str, str | int | float]:
+        return {
+            "signal_id": self.signal_id,
+            "symbol": self.symbol,
+            "direction": self.direction,
+            "entry": round(self.entry, 4),
+            "stop_loss": round(self.stop_loss, 4),
+            "tp1": round(self.tp1, 4),
+            "tp2": round(self.tp2, 4),
+            "tp3": round(self.tp3, 4),
+            "timeframe": self.timeframe,
+            "candle_timestamp": self.candle_timestamp,
+        }
 
 
 class SignalDeduplicator:

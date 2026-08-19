@@ -68,7 +68,7 @@ def test_stop_loss_and_take_profits_and_valid_buy_signal() -> None:
     assert signal.tp1 == pytest.approx(signal.entry + risk_offset * 1.5)
     assert signal.tp2 == pytest.approx(signal.entry + risk_offset * 3.0)
     assert signal.tp3 == pytest.approx(signal.entry + risk_offset * 4.5)
-    assert signal.to_payload()["entry"] == f"{signal.entry:.4f}"
+    assert signal.to_payload()["entry"] == round(signal.entry, 4)
 
 
 def test_invalid_buy_setup() -> None:
