@@ -1,1 +1,2 @@
-# Runtime dependencies will be added as backend engine features are implemented.
+aiohttp==3.10.11
+pytest==8.3.3
