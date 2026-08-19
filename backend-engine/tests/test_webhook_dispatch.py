@@ -4,7 +4,7 @@ import asyncio
 from dataclasses import dataclass
 from typing import Any
 
-from main import dispatch_signal
+from main import api_timeframe, dispatch_signal
 from strategy import Signal
 
 
@@ -64,3 +64,8 @@ def test_dispatch_signal_sends_gateway_contract_with_auth_header() -> None:
         }
 
     asyncio.run(run())
+
+
+def test_api_timeframe_maps_bybit_sixty_minute_interval_to_gateway_contract() -> None:
+    assert api_timeframe("60") == "1h"
+    assert api_timeframe("1h") == "1h"

@@ -14,6 +14,12 @@ from strategy import Signal, SignalDeduplicator, evaluate_buy_signal
 LOGGER = logging.getLogger(__name__)
 
 
+def api_timeframe(candle_interval: str) -> str:
+    if candle_interval == "60":
+        return "1h"
+    return candle_interval
+
+
 async def dispatch_signal(session: aiohttp.ClientSession, url: str, auth_token: str, signal: Signal) -> None:
     headers = {"x-byquant-auth": auth_token, "Content-Type": "application/json"}
     timeout = aiohttp.ClientTimeout(total=15, connect=5, sock_read=10)
@@ -52,7 +58,7 @@ async def run() -> None:
         async for symbol, candle in client.stream_klines(symbols, settings.candle_interval):
             try:
                 cache.upsert(symbol, candle)
-                signal = evaluate_buy_signal(symbol, cache.get(symbol), settings.candle_interval)
+                signal = evaluate_buy_signal(symbol, cache.get(symbol), api_timeframe(settings.candle_interval))
                 if signal and dedupe.mark_if_new(signal.symbol, signal.candle_timestamp, signal.direction):
                     await dispatch_signal(session, settings.middleware_webhook_url, settings.middleware_auth_token, signal)
             except Exception as exc:
