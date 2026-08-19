@@ -1,45 +1,12 @@
 declare module "node:http" {
-  export interface IncomingMessage {
-    method?: string;
-    url?: string;
-  }
-
-  export interface ServerResponse {
-    statusCode: number;
-    setHeader(name: string, value: string): void;
-    end(data?: string): void;
-  }
-
-  export interface Server {
-    listen(port: number, callback?: () => void): Server;
-    close(callback?: (error?: Error) => void): void;
-    address(): { port: number } | string | null;
-  }
-
-  export function createServer(
-    requestListener: (request: IncomingMessage, response: ServerResponse) => void,
-  ): Server;
+  export interface IncomingMessage { method?: string; url?: string; headers: Record<string, string | string[] | undefined>; [Symbol.asyncIterator](): AsyncIterator<string | { toString(encoding?: string): string }>; }
+  export interface ServerResponse { statusCode: number; setHeader(name: string, value: string): void; end(data?: string): void; }
+  export interface Server { listen(port: number, callback?: () => void): Server; close(callback?: (error?: Error) => void): void; address(): { port: number } | string | null; }
+  export function createServer(requestListener: (request: IncomingMessage, response: ServerResponse) => void): Server;
 }
-
-declare module "node:assert/strict" {
-  const assert: {
-    equal(actual: unknown, expected: unknown, message?: string): void;
-    deepEqual(actual: unknown, expected: unknown, message?: string): void;
-  };
-  export default assert;
-}
-
-declare module "node:test" {
-  export function describe(name: string, fn: () => void): void;
-  export function it(name: string, fn: () => void | Promise<void>): void;
-}
-
-declare const process: {
-  env: Record<string, string | undefined>;
-  argv: readonly string[];
-};
-
-declare function fetch(input: string): Promise<{
-  status: number;
-  json(): Promise<unknown>;
-}>;
+declare module "node:assert/strict" { const assert: { equal(actual: unknown, expected: unknown, message?: string): void; deepEqual(actual: unknown, expected: unknown, message?: string): void; ok(value: unknown, message?: string): void; }; export default assert; }
+declare module "node:test" { export function describe(name: string, fn: () => void): void; export function it(name: string, fn: () => void | Promise<void>): void; }
+declare module "node:fs" { export function existsSync(path: string): boolean; export function readFileSync(path: string, encoding: string): string; }
+declare module "node:path" { export function resolve(...paths: string[]): string; }
+declare const process: { env: Record<string, string | undefined>; argv: readonly string[]; cwd(): string; exit(code?: number): never; };
+declare function fetch(input: string, init?: { method?: string; headers?: Record<string, string>; body?: string }): Promise<{ ok: boolean; status: number; json(): Promise<unknown>; }>;

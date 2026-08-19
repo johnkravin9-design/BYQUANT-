@@ -1,16 +1,11 @@
-import type { IncomingMessage, ServerResponse } from "node:http";
+import type { RequestHandler } from "../server.js";
 
-export interface RouteResult {
-  readonly handled: boolean;
-}
-
-export function handleHealthRoute(request: IncomingMessage, response: ServerResponse): RouteResult {
-  if (request.method !== "GET" || request.url !== "/health") {
-    return { handled: false };
-  }
-
-  response.statusCode = 200;
-  response.setHeader("content-type", "application/json");
-  response.end(JSON.stringify({ status: "ok", service: "byquant-api-gateway" }));
-  return { handled: true };
+export function createHealthRoute(healthCheck: () => Promise<boolean>): RequestHandler {
+  return async (request, response) => {
+    if (request.method !== "GET" || request.url.pathname !== "/health") return false;
+    const databaseOk = await healthCheck();
+    response.statusCode = databaseOk ? 200 : 503;
+    response.json({ status: databaseOk ? "ok" : "error", database: databaseOk ? "ok" : "unavailable" });
+    return true;
+  };
 }
