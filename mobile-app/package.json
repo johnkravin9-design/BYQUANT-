@@ -1,0 +1,41 @@
+{
+  "name": "byquant-mobile-app",
+  "version": "0.1.0",
+  "private": true,
+  "main": "src/App.tsx",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "jest --runInBand"
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-native": "^0.79.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-test-renderer": "^19.0.0",
+    "jest": "^30.0.0",
+    "react-test-renderer": "^19.0.0",
+    "ts-jest": "^29.2.5",
+    "typescript": "^5.8.0"
+  },
+  "jest": {
+    "preset": "react-native",
+    "transform": {
+      "^.+\\.tsx?$": [
+        "ts-jest",
+        {
+          "tsconfig": "tsconfig.json"
+        }
+      ]
+    },
+    "testMatch": [
+      "**/src/**/*.test.ts",
+      "**/src/**/*.test.tsx"
+    ],
+    "setupFiles": [
+      "<rootDir>/src/__tests__/jest.setup.ts"
+    ]
+  }
+}
