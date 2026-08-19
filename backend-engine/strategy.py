@@ -106,7 +106,7 @@ def atr(candles: list[Candle], period: int = 14) -> list[float | None]:
     return result
 
 
-def evaluate_buy_signal(symbol: str, candles: list[Candle], timeframe: str = "60") -> Signal | None:
+def evaluate_buy_signal(symbol: str, candles: list[Candle], timeframe: str = "1h") -> Signal | None:
     if len(candles) < 22:
         return None
     closes = [candle.close for candle in candles]
