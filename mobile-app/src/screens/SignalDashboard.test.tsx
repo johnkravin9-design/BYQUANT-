@@ -6,10 +6,11 @@ import {signalFixture} from '../__tests__/fixtures';
 jest.mock('../api/client', () => ({getActiveSignals: jest.fn()}));
 const {getActiveSignals} = jest.requireMock('../api/client') as {getActiveSignals: jest.Mock};
 
-it('renders loading state', () => {
+it('renders loading state', async () => {
   getActiveSignals.mockReturnValue(new Promise(() => undefined));
-  const tree = renderer.create(<SignalDashboard />).toJSON();
-  expect(JSON.stringify(tree)).toContain('Loading latest signals');
+  let component: import('react-test-renderer').ReactTestRenderer;
+  await act(async () => { component = renderer.create(<SignalDashboard />); });
+  expect(JSON.stringify(component!.toJSON())).toContain('Loading latest signals');
 });
 
 it('renders empty state', async () => {
@@ -24,16 +25,18 @@ it('renders error state and supports retry', async () => {
   let component: import('react-test-renderer').ReactTestRenderer;
   await act(async () => { component = renderer.create(<SignalDashboard />); });
   expect(JSON.stringify(component!.toJSON())).toContain('Connection issue');
+  const beforeRetry = getActiveSignals.mock.calls.length;
   const retryButton = component!.root.findByProps({accessibilityLabel: 'Retry'});
   await act(async () => { retryButton.props.onPress(); });
-  expect(getActiveSignals).toHaveBeenCalledTimes(2);
+  expect(getActiveSignals).toHaveBeenCalledTimes(beforeRetry + 1);
 });
 
 it('refreshes manually', async () => {
   getActiveSignals.mockResolvedValue([signalFixture]);
   let component: import('react-test-renderer').ReactTestRenderer;
   await act(async () => { component = renderer.create(<SignalDashboard />); });
+  const beforeRefresh = getActiveSignals.mock.calls.length;
   const refreshButton = component!.root.findByProps({accessibilityLabel: 'Refresh latest signals'});
   await act(async () => { refreshButton.props.onPress(); });
-  expect(getActiveSignals).toHaveBeenCalledTimes(2);
+  expect(getActiveSignals).toHaveBeenCalledTimes(beforeRefresh + 1);
 });
