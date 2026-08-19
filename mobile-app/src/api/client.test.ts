@@ -6,7 +6,7 @@ describe('api client', () => {
 
   it('parses and sorts signal responses', () => {
     const older = {...signalFixture, signal_id: 'old', created_at: '2026-08-18T00:00:00.000Z'};
-    expect(parseSignalsResponse({signals: [older, signalFixture]}).map(signal => signal.signal_id)).toEqual(['sig-1', 'old']);
+    expect(parseSignalsResponse({data: [older, signalFixture]}).map(signal => signal.signal_id)).toEqual(['sig-1', 'old']);
   });
 
   it('rejects malformed responses', () => {
@@ -14,7 +14,7 @@ describe('api client', () => {
   });
 
   it('fetches with query parameters', async () => {
-    (fetch as jest.Mock).mockResolvedValue({ok: true, json: async () => ({signals: [signalFixture]})});
+    (fetch as jest.Mock).mockResolvedValue({ok: true, json: async () => ({data: [{...signalFixture, entry_price: '64000.00000000'}]})});
     await expect(getActiveSignals({symbol: 'BTCUSDT', limit: 1})).resolves.toHaveLength(1);
     expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/api/signals?symbol=BTCUSDT&limit=1'), expect.objectContaining({method: 'GET'}));
   });
