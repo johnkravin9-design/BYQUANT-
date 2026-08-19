@@ -93,6 +93,23 @@ describe("api gateway", () => {
     });
   });
 
+
+  it("rejects oversized JSON request bodies", async () => {
+    await withApp(new MemoryDatabase(), new MockNotifier(), async (baseUrl) => {
+      const response = await fetch(`${baseUrl}/api/signals/webhook`, { method: "POST", headers: { "content-type": "application/json", "x-byquant-auth": "secret" }, body: JSON.stringify({ padding: "x".repeat(70_000) }) });
+      assert.equal(response.status, 413);
+      assert.deepEqual(await response.json(), { error: "request_body_too_large" });
+    });
+  });
+
+  it("rejects invalid JSON request bodies", async () => {
+    await withApp(new MemoryDatabase(), new MockNotifier(), async (baseUrl) => {
+      const response = await fetch(`${baseUrl}/api/signals/webhook`, { method: "POST", headers: { "content-type": "application/json", "x-byquant-auth": "secret" }, body: "{" });
+      assert.equal(response.status, 400);
+      assert.deepEqual(await response.json(), { error: "invalid_json" });
+    });
+  });
+
   it("retrieves signals and filters by symbol", async () => {
     await withApp(new MemoryDatabase(), new MockNotifier(), async (baseUrl) => {
       await post(baseUrl, validSignal);
@@ -104,6 +121,7 @@ describe("api gateway", () => {
       const body = await filtered.json() as { readonly data: readonly MarketSignal[] };
       assert.equal(body.data.length, 1);
       assert.equal(body.data[0]?.symbol, "BTCUSDT");
+      assert.equal(typeof body.data[0]?.entry_price, "string");
     });
   });
 

@@ -10,39 +10,69 @@ export class ApiClientError extends Error {
   }
 }
 
-type SignalResponse = Signal[] | {signals: Signal[]};
+type SignalEnvelope = Signal[] | {signals: unknown} | {data: unknown};
 
 export const getApiBaseUrl = (): string => {
   const env = typeof process !== 'undefined' ? process.env?.BYQUANT_API_URL : undefined;
   return (env && env.trim().replace(/\/$/, '')) || DEFAULT_API_URL;
 };
 
-const isSignal = (value: unknown): value is Signal => {
-  if (!value || typeof value !== 'object') return false;
+const toNumber = (value: unknown): number | null => {
+  const parsed = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : Number.NaN;
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const normalizeSignal = (value: unknown): Signal | null => {
+  if (!value || typeof value !== 'object') return null;
   const item = value as Record<string, unknown>;
-  return (
-    typeof item.signal_id === 'string' &&
-    typeof item.symbol === 'string' &&
-    item.direction === 'BUY' &&
-    typeof item.entry_price === 'number' &&
-    typeof item.stop_loss === 'number' &&
-    typeof item.take_profit_1 === 'number' &&
-    typeof item.take_profit_2 === 'number' &&
-    typeof item.take_profit_3 === 'number' &&
-    typeof item.timeframe === 'string' &&
-    typeof item.candle_timestamp === 'string' &&
-    typeof item.is_active === 'boolean' &&
-    typeof item.created_at === 'string'
-  );
+  const entryPrice = toNumber(item.entry_price);
+  const stopLoss = toNumber(item.stop_loss);
+  const takeProfit1 = toNumber(item.take_profit_1);
+  const takeProfit2 = toNumber(item.take_profit_2);
+  const takeProfit3 = toNumber(item.take_profit_3);
+  if (
+    typeof item.signal_id !== 'string' ||
+    typeof item.symbol !== 'string' ||
+    item.direction !== 'BUY' ||
+    entryPrice === null ||
+    stopLoss === null ||
+    takeProfit1 === null ||
+    takeProfit2 === null ||
+    takeProfit3 === null ||
+    typeof item.timeframe !== 'string' ||
+    typeof item.candle_timestamp !== 'string' ||
+    typeof item.is_active !== 'boolean' ||
+    typeof item.created_at !== 'string'
+  ) return null;
+  return {
+    signal_id: item.signal_id,
+    symbol: item.symbol,
+    direction: 'BUY',
+    entry_price: entryPrice,
+    stop_loss: stopLoss,
+    take_profit_1: takeProfit1,
+    take_profit_2: takeProfit2,
+    take_profit_3: takeProfit3,
+    timeframe: item.timeframe,
+    candle_timestamp: item.candle_timestamp,
+    is_active: item.is_active,
+    created_at: item.created_at,
+  };
 };
 
 export const parseSignalsResponse = (payload: unknown): Signal[] => {
-  const response = payload as SignalResponse;
-  const signals = Array.isArray(response) ? response : response?.signals;
-  if (!Array.isArray(signals) || !signals.every(isSignal)) {
-    throw new ApiClientError('Malformed signal response from API');
-  }
-  return [...signals].sort(
+  const response = payload as SignalEnvelope;
+  const signals = Array.isArray(response)
+    ? response
+    : response && typeof response === 'object' && 'data' in response
+      ? response.data
+      : response && typeof response === 'object' && 'signals' in response
+        ? response.signals
+        : undefined;
+  if (!Array.isArray(signals)) throw new ApiClientError('Malformed signal response from API');
+  const normalized = signals.map(normalizeSignal);
+  if (normalized.some(signal => signal === null)) throw new ApiClientError('Malformed signal response from API');
+  return (normalized as Signal[]).sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
   );
 };

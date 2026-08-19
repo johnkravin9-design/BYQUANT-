@@ -31,7 +31,7 @@ function loadRootEnv(): void {
 }
 
 function readPort(env: Environment): number {
-  const value = env.PORT ?? env.API_GATEWAY_PORT;
+  const value = env.PORT;
   if (value === undefined || value.trim() === "") return 3000;
   const parsed = Number.parseInt(value, 10);
   if (!Number.isInteger(parsed) || parsed <= 0 || parsed > 65535) {

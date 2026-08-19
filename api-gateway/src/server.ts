@@ -33,9 +33,21 @@ class NoopNotifier implements Notifier {
   public async notifySignal(): Promise<void> { return; }
 }
 
+const MAX_JSON_BODY_BYTES = 64 * 1024;
+
 async function readJson(request: IncomingMessage): Promise<unknown> {
   const chunks: string[] = [];
-  for await (const chunk of request) chunks.push(typeof chunk === "string" ? chunk : chunk.toString("utf8"));
+  let bytes = 0;
+  for await (const chunk of request) {
+    const value = typeof chunk === "string" ? chunk : chunk.toString("utf8");
+    bytes += new TextEncoder().encode(value).byteLength;
+    if (bytes > MAX_JSON_BODY_BYTES) {
+      const error = new Error("request_body_too_large");
+      error.name = "PayloadTooLargeError";
+      throw error;
+    }
+    chunks.push(value);
+  }
   if (chunks.length === 0) return undefined;
   return JSON.parse(chunks.join(""));
 }
@@ -44,6 +56,13 @@ function sendSafeError(response: ServerResponse, statusCode: number, error: stri
   response.statusCode = statusCode;
   response.setHeader("content-type", "application/json");
   response.end(JSON.stringify({ error }));
+}
+
+function applySecurityHeaders(response: ServerResponse): void {
+  response.setHeader("x-content-type-options", "nosniff");
+  response.setHeader("referrer-policy", "no-referrer");
+  response.setHeader("x-frame-options", "DENY");
+  response.setHeader("content-security-policy", "default-src 'none'; frame-ancestors 'none'");
 }
 
 function createAppResponse(response: ServerResponse): AppResponse {
@@ -59,15 +78,21 @@ export function createApp(options: { readonly config?: ApiConfig; readonly datab
   return createServer(async (request, response) => {
     try {
       const origin = request.headers.origin;
-      if (config?.corsOrigin !== undefined && origin === config.corsOrigin) response.setHeader("access-control-allow-origin", origin);
+      applySecurityHeaders(response);
+      if (config?.corsOrigin !== undefined && origin === config.corsOrigin) {
+        response.setHeader("access-control-allow-origin", origin);
+        response.setHeader("vary", "origin");
+      }
       if (request.method === "OPTIONS") { response.statusCode = 204; response.end(); return; }
       const appRequest: AppRequest = { method: request.method ?? "GET", url: new URL(request.url ?? "/", "http://localhost"), headers: Object.fromEntries(Object.entries(request.headers).map(([key, value]) => [key, Array.isArray(value) ? value[0] : value])), body: request.method === "POST" ? await readJson(request) : undefined };
       const appResponse = createAppResponse(response);
       for (const handler of handlers) if (await handler(appRequest, appResponse)) return;
       sendSafeError(response, 404, "not_found");
     } catch (error) {
-      console.error("Unhandled API error", { error: error instanceof Error ? error.message : "unknown" });
-      sendSafeError(response, 500, "internal_server_error");
+      const isSyntax = error instanceof SyntaxError;
+      const isTooLarge = error instanceof Error && error.name === "PayloadTooLargeError";
+      if (!isSyntax && !isTooLarge) console.error("Unhandled API error", { error: error instanceof Error ? error.message : "unknown" });
+      sendSafeError(response, isTooLarge ? 413 : isSyntax ? 400 : 500, isTooLarge ? "request_body_too_large" : isSyntax ? "invalid_json" : "internal_server_error");
     }
   });
 }
