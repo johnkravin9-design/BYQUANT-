@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ByQuant — spot-market signal gateway</title>
+<meta name="description" content="ByQuant generates spot-market quantitative signals. This is the API gateway status page." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,600;1,9..144,500&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0e1210;
+    --panel: #161b18;
+    --panel-line: #2a322c;
+    --paper: #e9e6d8;
+    --paper-dim: #a9a690;
+    --amber: #e0a339;
+    --amber-dim: #7a5b26;
+    --good: #7fae6b;
+    --bad: #c1573f;
+    --radius: 2px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    min-height: 100%;
+    background: var(--ink);
+    color: var(--paper);
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+  }
+
+  body {
+    background-image:
+      radial-gradient(circle at 12% 8%, rgba(224, 163, 57, 0.06), transparent 42%),
+      repeating-linear-gradient(0deg, rgba(233, 230, 216, 0.025) 0px, rgba(233, 230, 216, 0.025) 1px, transparent 1px, transparent 3px);
+    background-attachment: fixed;
+  }
+
+  .noise {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.05;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    z-index: 50;
+  }
+
+  .frame {
+    position: relative;
+    max-width: 1040px;
+    margin: 0 auto;
+    padding: 0 28px 80px;
+  }
+
+  header.masthead {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 24px;
+    padding: 48px 0 22px;
+    border-bottom: 1px solid var(--panel-line);
+    flex-wrap: wrap;
+    opacity: 0;
+    animation: rise 0.7s cubic-bezier(.2,.7,.2,1) 0.05s forwards;
+  }
+
+  .wordmark {
+    font-family: "Fraunces", serif;
+    font-weight: 600;
+    font-style: italic;
+    font-size: clamp(2.6rem, 6vw, 4.4rem);
+    letter-spacing: -0.01em;
+    line-height: 0.95;
+    color: var(--paper);
+  }
+
+  .wordmark span { color: var(--amber); font-style: normal; }
+
+  .tagline {
+    max-width: 30ch;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    color: var(--paper-dim);
+    text-align: right;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  main {
+    display: grid;
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: 20px;
+    margin-top: 32px;
+  }
+
+  @media (max-width: 760px) {
+    main { grid-template-columns: 1fr; }
+    .tagline { text-align: left; }
+  }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--panel-line);
+    border-radius: var(--radius);
+    padding: 22px 24px;
+    opacity: 0;
+    animation: rise 0.7s cubic-bezier(.2,.7,.2,1) forwards;
+  }
+
+  main .card:nth-of-type(1) { animation-delay: 0.15s; }
+  main .card:nth-of-type(2) { animation-delay: 0.25s; }
+  .endpoints { animation-delay: 0.35s; }
+  footer { animation-delay: 0.45s; }
+
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .card h2 {
+    margin: 0 0 14px;
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--paper-dim);
+    font-weight: 500;
+  }
+
+  .status-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--amber-dim);
+    box-shadow: 0 0 0 0 rgba(224, 163, 57, 0.5);
+    flex-shrink: 0;
+  }
+
+  .dot.pending { animation: pulse 1.1s ease-in-out infinite; }
+  .dot.good { background: var(--good); box-shadow: 0 0 10px 1px rgba(127,174,107,0.55); animation: none; }
+  .dot.bad { background: var(--bad); box-shadow: 0 0 10px 1px rgba(193,87,63,0.55); animation: none; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+  }
+
+  .status-label {
+    font-size: 1.05rem;
+    font-weight: 500;
+  }
+
+  .status-detail {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px dashed var(--panel-line);
+    font-size: 0.82rem;
+    color: var(--paper-dim);
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 6px 14px;
+  }
+
+  .status-detail dt { color: var(--paper-dim); }
+  .status-detail dd { margin: 0; color: var(--paper); text-align: right; word-break: break-word; }
+
+  .about p {
+    font-size: 0.88rem;
+    line-height: 1.65;
+    color: var(--paper-dim);
+    margin: 0 0 12px;
+  }
+
+  .about strong { color: var(--paper); font-weight: 500; }
+
+  .endpoints {
+    margin-top: 20px;
+    background: var(--panel);
+    border: 1px solid var(--panel-line);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .endpoint {
+    display: grid;
+    grid-template-columns: 90px 200px 1fr;
+    gap: 18px;
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--panel-line);
+    align-items: baseline;
+  }
+
+  .endpoint:last-child { border-bottom: none; }
+
+  @media (max-width: 620px) {
+    .endpoint { grid-template-columns: 1fr; gap: 4px; padding: 16px 20px; }
+  }
+
+  .method {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+  .method.get { color: var(--good); }
+  .method.post { color: var(--amber); }
+
+  .path { color: var(--paper); font-size: 0.86rem; }
+  .desc { color: var(--paper-dim); font-size: 0.82rem; }
+
+  footer {
+    margin-top: 28px;
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    font-size: 0.72rem;
+    letter-spacing: 0.03em;
+    color: var(--paper-dim);
+    opacity: 0;
+  }
+
+  footer a { color: var(--amber-dim); text-decoration: none; border-bottom: 1px solid var(--amber-dim); }
+  footer a:hover { color: var(--amber); border-color: var(--amber); }
+</style>
+</head>
+<body>
+<div class="noise" aria-hidden="true"></div>
+<div class="frame">
+  <header class="masthead">
+    <div class="wordmark">BY<span>QUANT</span></div>
+    <p class="tagline">Spot-market signal generation.<br>No derivatives. No trade execution.</p>
+  </header>
+
+  <main>
+    <section class="card" aria-live="polite">
+      <h2>Gateway status</h2>
+      <div class="status-row">
+        <span class="dot pending" id="status-dot"></span>
+        <span class="status-label" id="status-label">Checking&hellip;</span>
+      </div>
+      <dl class="status-detail">
+        <dt>Database</dt>
+        <dd id="status-database">&mdash;</dd>
+        <dt>Checked</dt>
+        <dd id="status-time">&mdash;</dd>
+      </dl>
+    </section>
+
+    <section class="card about">
+      <h2>What this is</h2>
+      <p><strong>ByQuant</strong> scans Bybit Spot markets, computes EMA9/EMA21, RSI14, OBV and ATR14 on confirmed candles, and emits <strong>BUY-only</strong> signals — it does not place orders or promise returns.</p>
+      <p>This page is the API gateway that receives signals, persists them, and serves reads to the ByQuant mobile client.</p>
+    </section>
+  </main>
+
+  <section class="endpoints">
+    <div class="endpoint">
+      <span class="method get">GET</span>
+      <span class="path">/health</span>
+      <span class="desc">Gateway and database liveness check.</span>
+    </div>
+    <div class="endpoint">
+      <span class="method get">GET</span>
+      <span class="path">/api/signals</span>
+      <span class="desc">Active signals, optionally filtered by <code>symbol</code>.</span>
+    </div>
+    <div class="endpoint">
+      <span class="method post">POST</span>
+      <span class="path">/api/signals/webhook</span>
+      <span class="desc">Authenticated ingest from the market-data engine.</span>
+    </div>
+  </section>
+
+  <footer>
+    <span>ByQuant API Gateway</span>
+    <span>Signals are informational only and are not investment advice.</span>
+  </footer>
+</div>
+
+<script>
+  (function () {
+    var dot = document.getElementById("status-dot");
+    var label = document.getElementById("status-label");
+    var db = document.getElementById("status-database");
+    var time = document.getElementById("status-time");
+
+    function render(state, text, dbText) {
+      dot.className = "dot " + state;
+      label.textContent = text;
+      db.textContent = dbText;
+      time.textContent = new Date().toLocaleTimeString();
+    }
+
+    fetch("/health")
+      .then(function (res) {
+        return res.json().then(function (body) { return { ok: res.ok, body: body }; });
+      })
+      .then(function (result) {
+        if (result.ok) render("good", "Operational", result.body.database || "ok");
+        else render("bad", "Degraded", (result.body && result.body.database) || "unavailable");
+      })
+      .catch(function () {
+        render("bad", "Unreachable", "unavailable");
+      });
+  })();
+</script>
+</body>
+</html>

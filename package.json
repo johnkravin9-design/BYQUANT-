@@ -1,0 +1,10 @@
+{
+  "name": "byquant-site",
+  "private": true,
+  "dependencies": {
+    "@netlify/database": "^2.0.0"
+  },
+  "devDependencies": {
+    "@netlify/functions": "^6.0.0"
+  }
+}
