@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 
 import { loadConfig, type ApiConfig } from "./config.js";
@@ -73,17 +74,31 @@ export function createApp(options: { readonly config?: ApiConfig; readonly datab
   const config = options.config;
   const database = options.database ?? new UnavailableDatabase();
   const notifier = options.notifier ?? new NoopNotifier();
-  const authToken = config?.middlewareAuthToken ?? "test-token";
+  // Never fall back to a guessable shared secret: an unconfigured gateway must
+  // reject every webhook instead of trusting a well-known default token.
+  const authToken = config?.middlewareAuthToken ?? randomUUID();
   const handlers = [createHealthRoute(() => database.healthCheck()), createSignalRoutes(database, notifier, authToken)];
   return createServer(async (request, response) => {
     try {
       const origin = request.headers.origin;
       applySecurityHeaders(response);
-      if (config?.corsOrigin !== undefined && origin === config.corsOrigin) {
+      const corsAllowed = config?.corsOrigin !== undefined && typeof origin === "string" && origin === config.corsOrigin;
+      if (corsAllowed && typeof origin === "string") {
         response.setHeader("access-control-allow-origin", origin);
         response.setHeader("vary", "origin");
       }
-      if (request.method === "OPTIONS") { response.statusCode = 204; response.end(); return; }
+      if (request.method === "OPTIONS") {
+        // A preflight must advertise the allowed methods and the custom auth
+        // header, otherwise browsers block every cross-origin webhook POST.
+        if (corsAllowed) {
+          response.setHeader("access-control-allow-methods", "GET, POST, OPTIONS");
+          response.setHeader("access-control-allow-headers", "content-type, x-byquant-auth");
+          response.setHeader("access-control-max-age", "600");
+        }
+        response.statusCode = 204;
+        response.end();
+        return;
+      }
       const appRequest: AppRequest = { method: request.method ?? "GET", url: new URL(request.url ?? "/", "http://localhost"), headers: Object.fromEntries(Object.entries(request.headers).map(([key, value]) => [key, Array.isArray(value) ? value[0] : value])), body: request.method === "POST" ? await readJson(request) : undefined };
       const appResponse = createAppResponse(response);
       for (const handler of handlers) if (await handler(appRequest, appResponse)) return;

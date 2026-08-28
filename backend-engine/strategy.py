@@ -83,6 +83,8 @@ def rsi(values: list[float], period: int = 14) -> list[float | None]:
 
 
 def obv(candles: list[Candle]) -> list[float]:
+    if not candles:
+        return []
     result = [0.0]
     for index in range(1, len(candles)):
         previous = result[-1]

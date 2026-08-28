@@ -32,6 +32,10 @@ async def dispatch_signal(session: aiohttp.ClientSession, url: str, auth_token: 
                     return
                 if response.status >= 500:
                     raise RuntimeError(f"gateway status {response.status}")
+                if response.status >= 300:
+                    # 3xx is not a delivered signal; never log it as a success.
+                    LOGGER.error("Unexpected webhook response", extra={"status": response.status, "signal_id": signal.signal_id})
+                    return
                 LOGGER.info("Signal dispatched", extra={"signal_id": signal.signal_id, "symbol": signal.symbol})
                 return
         except (aiohttp.ClientError, asyncio.TimeoutError, RuntimeError) as exc:

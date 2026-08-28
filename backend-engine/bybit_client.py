@@ -109,7 +109,7 @@ def parse_ws_message(raw: str) -> tuple[str, Candle] | None:
     try:
         data = json.loads(raw)
         topic = data.get("topic", "")
-        if not topic.startswith("kline.60.") and not topic.startswith("kline."):
+        if not topic.startswith("kline."):
             return None
         symbol = topic.split(".")[-1]
         rows = data.get("data") or []

@@ -21,8 +21,17 @@ class Candle:
             raise ValueError("timestamp must be non-negative")
         for field in ("open", "high", "low", "close", "volume"):
             value = getattr(self, field)
-            if not isinstance(value, int | float) or value != value or value < 0:
+            # bool is a subclass of int, so it has to be rejected explicitly.
+            if isinstance(value, bool) or not isinstance(value, int | float):
                 raise ValueError(f"{field} must be a valid non-negative number")
+            if value != value or value in (float("inf"), float("-inf")) or value < 0:
+                raise ValueError(f"{field} must be a valid non-negative number")
+        if self.high < self.low:
+            raise ValueError("high must be greater than or equal to low")
+        if not self.low <= self.open <= self.high:
+            raise ValueError("open must fall within the low-high range")
+        if not self.low <= self.close <= self.high:
+            raise ValueError("close must fall within the low-high range")
 
 
 class MarketCache:

@@ -1,3 +1,5 @@
+import pytest
+
 from market_cache import Candle, MarketCache
 
 
@@ -30,3 +32,18 @@ def test_multiple_symbols() -> None:
     cache = MarketCache(2); cache.upsert("BTCUSDT", c(1)); cache.upsert("ETHUSDT", c(2))
     assert cache.get("BTCUSDT")[0].timestamp == 1
     assert cache.get("ETHUSDT")[0].timestamp == 2
+
+
+def test_candle_rejects_boolean_values() -> None:
+    with pytest.raises(ValueError):
+        Candle(1, True, 2.0, 0.5, 1.0, 10)
+
+
+def test_candle_rejects_inverted_high_low() -> None:
+    with pytest.raises(ValueError):
+        Candle(1, 1.0, 0.5, 2.0, 1.0, 10)
+
+
+def test_candle_rejects_close_outside_range() -> None:
+    with pytest.raises(ValueError):
+        Candle(1, 1.0, 2.0, 0.5, 9.0, 10)

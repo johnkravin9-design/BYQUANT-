@@ -69,3 +69,31 @@ def test_dispatch_signal_sends_gateway_contract_with_auth_header() -> None:
 def test_api_timeframe_maps_bybit_sixty_minute_interval_to_gateway_contract() -> None:
     assert api_timeframe("60") == "1h"
     assert api_timeframe("1h") == "1h"
+
+
+class RedirectSession(FakeSession):
+    def post(self, url: str, json: object, headers: dict[str, str], timeout: object) -> FakeResponse:
+        super().post(url, json, headers, timeout)
+        return FakeResponse(302)
+
+
+def test_dispatch_signal_does_not_treat_redirect_as_delivery() -> None:
+    async def run() -> None:
+        session = RedirectSession()
+        signal = Signal(
+            signal_id="sig-python-2",
+            symbol="BTCUSDT",
+            direction="BUY",
+            entry=64000.0,
+            stop_loss=62000.0,
+            tp1=65000.0,
+            tp2=66000.0,
+            tp3=68000.0,
+            timeframe="1h",
+            candle_timestamp=1787097600000,
+        )
+        await dispatch_signal(session, "http://gateway/api/signals/webhook", "secret-token", signal)  # type: ignore[arg-type]
+        # A single attempt, and no retry storm: a 3xx is a configuration error.
+        assert len(session.calls) == 1
+
+    asyncio.run(run())

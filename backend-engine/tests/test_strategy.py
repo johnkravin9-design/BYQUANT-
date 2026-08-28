@@ -83,3 +83,12 @@ def test_deduplicator_bounds_and_prevents_duplicates() -> None:
     assert dedupe.mark_if_new("ETHUSDT", 2, "BUY") is True
     assert dedupe.mark_if_new("SOLUSDT", 3, "BUY") is True
     assert dedupe.mark_if_new("BTCUSDT", 1, "BUY") is True
+
+
+def test_obv_returns_empty_series_for_empty_candles() -> None:
+    assert obv([]) == []
+
+
+def test_obv_length_matches_candle_count() -> None:
+    candles = [Candle(i, 1.0, 2.0, 0.5, 1.0 + (i % 2), 10.0) for i in range(5)]
+    assert len(obv(candles)) == len(candles)

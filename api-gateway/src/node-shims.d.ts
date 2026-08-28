@@ -9,4 +9,16 @@ declare module "node:test" { export function describe(name: string, fn: () => vo
 declare module "node:fs" { export function existsSync(path: string): boolean; export function readFileSync(path: string, encoding: string): string; }
 declare module "node:path" { export function resolve(...paths: string[]): string; }
 declare const process: { env: Record<string, string | undefined>; argv: readonly string[]; cwd(): string; exit(code?: number): never; };
-declare function fetch(input: string, init?: { method?: string; headers?: Record<string, string>; body?: string }): Promise<{ ok: boolean; status: number; json(): Promise<unknown>; }>;
+declare function fetch(input: string, init?: { method?: string; headers?: Record<string, string>; body?: string }): Promise<{ ok: boolean; status: number; headers: { get(name: string): string | null }; json(): Promise<unknown>; }>;
+
+interface NodeBuffer extends Uint8Array { toString(encoding?: string): string; }
+declare const Buffer: {
+  from(value: string | Uint8Array | ArrayBuffer, encoding?: string): NodeBuffer;
+  concat(list: readonly NodeBuffer[]): NodeBuffer;
+};
+declare module "node:crypto" {
+  export interface Signer { update(data: string): Signer; end(): void; sign(privateKey: string): NodeBuffer; }
+  export function createSign(algorithm: string): Signer;
+  export function timingSafeEqual(a: NodeBuffer, b: NodeBuffer): boolean;
+  export function randomUUID(): string;
+}

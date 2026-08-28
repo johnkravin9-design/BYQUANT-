@@ -1,7 +1,18 @@
+import { timingSafeEqual } from "node:crypto";
+
 import type { Database, NormalizedSignalPayload, Notifier, ValidationError } from "../types.js";
 import type { RequestHandler } from "../server.js";
 
 const SYMBOL_PATTERN = /^[A-Z0-9]{2,20}$/;
+
+/** Constant-time secret comparison so response latency cannot leak the token. */
+function secretsMatch(provided: string | undefined, expected: string): boolean {
+  if (provided === undefined) return false;
+  const a = Buffer.from(provided, "utf8");
+  const b = Buffer.from(expected, "utf8");
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : null;
@@ -12,6 +23,22 @@ function readPositiveNumber(record: Record<string, unknown>, field: string, erro
   const value = typeof raw === "number" ? raw : typeof raw === "string" ? Number(raw) : Number.NaN;
   if (!Number.isFinite(value) || value <= 0) errors.push({ field, message: "must be a finite positive number" });
   return value;
+}
+
+/**
+ * Accepts epoch seconds, epoch milliseconds (number OR numeric string) and
+ * ISO-8601 strings. Numeric strings previously produced an Invalid Date.
+ */
+export function toTimestampDate(raw: unknown): Date {
+  const numeric = typeof raw === "number" ? raw
+    : typeof raw === "string" && raw.trim() !== "" && Number.isFinite(Number(raw)) ? Number(raw)
+    : null;
+  if (numeric !== null) {
+    if (!Number.isFinite(numeric) || numeric <= 0) return new Date(Number.NaN);
+    return new Date(numeric > 10_000_000_000 ? numeric : numeric * 1000);
+  }
+  if (typeof raw !== "string") return new Date(Number.NaN);
+  return new Date(raw);
 }
 
 export function validateSignalPayload(body: unknown): { readonly ok: true; readonly signal: NormalizedSignalPayload } | { readonly ok: false; readonly errors: readonly ValidationError[] } {
@@ -32,7 +59,7 @@ export function validateSignalPayload(body: unknown): { readonly ok: true; reado
   const tp2 = readPositiveNumber(record, "tp2", errors);
   const tp3 = readPositiveNumber(record, "tp3", errors);
   const timestampRaw = record.candle_timestamp;
-  const date = typeof timestampRaw === "number" ? new Date(timestampRaw > 10_000_000_000 ? timestampRaw : timestampRaw * 1000) : new Date(String(timestampRaw));
+  const date = toTimestampDate(timestampRaw);
   if (!Number.isFinite(date.getTime())) errors.push({ field: "candle_timestamp", message: "must be a valid timestamp" });
   if (Number.isFinite(entry) && Number.isFinite(stopLoss) && !(stopLoss < entry)) errors.push({ field: "stop_loss", message: "must be less than entry" });
   if (Number.isFinite(entry) && Number.isFinite(tp1) && !(tp1 > entry)) errors.push({ field: "tp1", message: "must be greater than entry" });
@@ -45,7 +72,7 @@ export function validateSignalPayload(body: unknown): { readonly ok: true; reado
 export function createSignalRoutes(database: Database, notifier: Notifier, authToken: string): RequestHandler {
   return async (request, response) => {
     if (request.method === "POST" && request.url.pathname === "/api/signals/webhook") {
-      if (request.headers["x-byquant-auth"] !== authToken) {
+      if (!secretsMatch(request.headers["x-byquant-auth"], authToken)) {
         response.statusCode = 401;
         response.json({ error: "unauthorized" });
         return true;

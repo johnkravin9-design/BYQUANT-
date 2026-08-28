@@ -23,8 +23,8 @@ class MemoryDatabase implements Database {
 
 class MockNotifier implements Notifier { public calls = 0; public async notifySignal(): Promise<void> { this.calls += 1; } }
 
-async function withApp<T>(database: MemoryDatabase, notifier: MockNotifier, run: (baseUrl: string) => Promise<T>): Promise<T> {
-  const app = createApp({ config: { nodeEnv: "test", port: 0, databaseUrl: "postgresql://example", middlewareAuthToken: "secret", telegramBotToken: "telegram", telegramChannelId: "channel", firebaseCredentialsPath: "firebase.json", corsOrigin: undefined }, database, notifier });
+async function withApp<T>(database: MemoryDatabase, notifier: MockNotifier, run: (baseUrl: string) => Promise<T>, corsOrigin?: string): Promise<T> {
+  const app = createApp({ config: { nodeEnv: "test", port: 0, databaseUrl: "postgresql://example", middlewareAuthToken: "secret", telegramBotToken: "telegram", telegramChannelId: "channel", firebaseCredentialsPath: "firebase.json", corsOrigin }, database, notifier });
   await new Promise<void>((resolve) => { app.listen(0, resolve); });
   const address = app.address();
   if (address === null || typeof address === "string") throw new Error("Expected an ephemeral TCP server address");
@@ -155,6 +155,32 @@ describe("api gateway", () => {
     await withApp(new MemoryDatabase(), new MockNotifier(), async (baseUrl) => {
       const response = await fetch(`${baseUrl}/api/signals?limit=101`);
       assert.equal(response.status, 400);
+    });
+  });
+
+  it("answers CORS preflight with allowed methods and headers", async () => {
+    await withApp(new MemoryDatabase(), new MockNotifier(), async (baseUrl) => {
+      const response = await fetch(`${baseUrl}/api/signals/webhook`, { method: "OPTIONS", headers: { origin: "https://app.byquant.io" } });
+      assert.equal(response.status, 204);
+      assert.equal(response.headers.get("access-control-allow-origin"), "https://app.byquant.io");
+      assert.equal(response.headers.get("access-control-allow-methods"), "GET, POST, OPTIONS");
+      assert.equal(response.headers.get("access-control-allow-headers"), "content-type, x-byquant-auth");
+    }, "https://app.byquant.io");
+  });
+
+  it("does not expose CORS headers to disallowed origins", async () => {
+    await withApp(new MemoryDatabase(), new MockNotifier(), async (baseUrl) => {
+      const response = await fetch(`${baseUrl}/api/signals/webhook`, { method: "OPTIONS", headers: { origin: "https://evil.example" } });
+      assert.equal(response.status, 204);
+      assert.equal(response.headers.get("access-control-allow-origin"), null);
+      assert.equal(response.headers.get("access-control-allow-methods"), null);
+    }, "https://app.byquant.io");
+  });
+
+  it("accepts numeric string candle timestamps", async () => {
+    await withApp(new MemoryDatabase(), new MockNotifier(), async (baseUrl) => {
+      const result = await post(baseUrl, { ...validSignal, signal_id: "223e4567-e89b-12d3-a456-426614174000", candle_timestamp: "1787097600000" });
+      assert.equal(result.status, 201);
     });
   });
 });
