@@ -26,3 +26,6 @@ coverage/
 # Docker / logs
 *.log
 postgres-data/
+
+# Local Netlify folder
+.netlify
